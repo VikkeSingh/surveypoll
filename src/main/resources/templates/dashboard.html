@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surveypoll Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body { background: #fff; }
+        .navbar-brand { font-size: 2rem; font-weight: 700; }
+        .filter-bar {
+            background: #000;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 24px 0 40px;
+        }
+        .filter-bar .form-control, .filter-bar .form-select { border: none; }
+        .status-pill {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .status-completed { background: #28a745; }
+        .status-terminated { background: #dc3545; }
+        .status-quotafull { background: #fd7e14; }
+        .status-security-terminate { background: #6f42c1; }
+        table thead th { border-top: none; font-weight: 700; }
+        table td, table th { vertical-align: middle; text-align: center; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark bg-dark px-4">
+    <span class="navbar-brand mb-0">Surveypoll</span>
+    <div class="dropdown">
+        <a class="text-white dropdown-toggle text-decoration-none fw-semibold" href="#" role="button" data-bs-toggle="dropdown">
+            ADMIN
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+                <form method="post" th:action="@{/logout}" class="px-2">
+                    <button type="submit" class="dropdown-item">Logout</button>
+                </form>
+            </li>
+        </ul>
+    </div>
+</nav>
+
+<div class="container-fluid px-4">
+
+    <!-- GET form: submitting reloads /dashboard with the filter params, server renders the table -->
+    <form class="filter-bar" method="get" th:action="@{/}" id="filterForm">
+        <div class="row g-2 align-items-center">
+            <div class="col-md">
+                <input type="text" name="projectId" class="form-control" placeholder="Project ID"
+                       th:value="${projectId}">
+            </div>
+            <div class="col-md">
+                <select name="status" class="form-select">
+                    <option value="" th:selected="${status == null or status == ''}">All</option>
+                    <option value="completed" th:selected="${status == 'completed'}">Completed</option>
+                    <option value="terminated" th:selected="${status == 'terminated'}">Terminated</option>
+                    <option value="quotafull" th:selected="${status == 'quotafull'}">Quotafull</option>
+                    <option value="security-terminate" th:selected="${status == 'security-terminate'}">Security Terminate</option>
+                </select>
+            </div>
+            <div class="col-md">
+                <input type="date" name="startDate" class="form-control" placeholder="Start Date"
+                       th:value="${startDate}">
+            </div>
+            <div class="col-md">
+                <input type="date" name="endDate" class="form-control" placeholder="End Date"
+                       th:value="${endDate}">
+            </div>
+            <div class="col-md">
+                <input type="text" name="uid" class="form-control" placeholder="UID"
+                       th:value="${uid}">
+            </div>
+            <div class="col-md-auto">
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-search"></i> Filter
+                </button>
+            </div>
+            <div class="col-md-auto">
+                <button type="submit" class="btn btn-success" formaction="/api/records/report" formmethod="get">
+                    <i class="bi bi-file-earmark-arrow-down"></i> REPORT
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>S.NO</th>
+                <th>Project ID</th>
+                <th>Username</th>
+                <th>Status</th>
+                <th>IP Address</th>
+                <th>Country</th>
+                <th>Create At</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:if="${#lists.isEmpty(records)}">
+                <td colspan="7" class="text-muted py-4">No records found</td>
+            </tr>
+            <tr th:each="r, stat : ${records}">
+                <td th:text="${stat.count}">1</td>
+                <td th:text="${r.projectId}">PID</td>
+                <td th:text="${r.username}">UID</td>
+                <td>
+                    <span class="status-pill"
+                          th:classappend="'status-' + ${#strings.toLowerCase(r.status)}"
+                          th:text="${r.status}">status</span>
+                </td>
+                <td th:text="${r.ipAddress}">0.0.0.0</td>
+                <td th:text="${r.country}">Country</td>
+                <td th:text="${r.createAt != null} ? ${#temporals.format(r.createAt, 'yyyy-MM-dd HH:mm:ss')} : ''">date</td>
+            </tr>
+        </tbody>
+    </table>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
