@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surveypoll — Add User</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body { background: #fff; }
+        .navbar-brand { font-size: 2rem; font-weight: 700; }
+        .panel {
+            background: #000;
+            border-radius: 6px;
+            padding: 24px;
+            margin: 24px 0 32px;
+        }
+        .panel label { color: #fff; font-weight: 600; margin-bottom: 4px; }
+        .panel .form-control { border: none; }
+        .panel .form-text { color: #aaa; }
+        table td, table th { vertical-align: middle; }
+        .section-title { font-weight: 700; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+
+<%- include('partials/nav', { user, active: 'users' }) %>
+
+<div class="container" style="max-width: 900px;">
+
+    <% if (error) { %>
+        <div class="alert alert-danger mt-4 mb-0" role="alert"><%= error %></div>
+    <% } %>
+    <% if (created) { %>
+        <div class="alert alert-success mt-4 mb-0" role="alert">
+            User <strong><%= created %></strong> was created.
+        </div>
+    <% } %>
+
+    <form class="panel" method="post" action="/admin/users">
+        <div class="section-title text-white fs-5">Add User</div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" name="username" class="form-control"
+                       value="<%= form.username %>" required autofocus>
+            </div>
+            <div class="col-md-4">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-control"
+                       minlength="<%= minPassword %>" required>
+            </div>
+            <div class="col-md-4">
+                <label for="confirm" class="form-label">Confirm Password</label>
+                <input type="password" id="confirm" name="confirm" class="form-control"
+                       minlength="<%= minPassword %>" required>
+            </div>
+        </div>
+        <div class="form-text mt-2">
+            3–32 characters: letters, digits, dot, underscore or hyphen.
+            Password at least <%= minPassword %> characters.
+        </div>
+        <button type="submit" class="btn btn-danger mt-3">
+            <i class="bi bi-person-plus me-1"></i> Add User
+        </button>
+    </form>
+
+    <div class="section-title fs-5">Existing Users</div>
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>S.NO</th>
+                <th>Username</th>
+                <th>Created</th>
+                <th>Password Last Changed</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% accounts.forEach(function (a, i) { %>
+                <tr>
+                    <td><%= i + 1 %></td>
+                    <td>
+                        <%= a.username %>
+                        <% if (a.username === user) { %>
+                            <span class="badge bg-secondary ms-1">you</span>
+                        <% } %>
+                    </td>
+                    <td><%= formatTimestamp(a.createdAt) %></td>
+                    <td><%= formatTimestamp(a.updatedAt) %></td>
+                </tr>
+            <% }); %>
+        </tbody>
+    </table>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

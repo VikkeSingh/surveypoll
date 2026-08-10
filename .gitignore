@@ -1,5 +1,8 @@
-target/
-!.mvn/wrapper/maven-wrapper.jar
+node_modules/
+.vercel/
+.env
+.env*.local
+npm-debug.log*
 .idea/
 *.iml
 .DS_Store
