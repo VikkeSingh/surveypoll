@@ -176,10 +176,18 @@ vercel            # first deploy / link the project
 vercel --prod
 ```
 
-**No environment variables are required.** Every setting has a committed default
-in `src/config.js`, so a fresh deploy connects to Atlas, seeds the `admin` login
-and serves the dashboard as-is. Override any of them in **Project → Settings →
-Environment Variables** when you want a value kept out of the repository.
+**No environment variables are required, including for the duplicate rules.**
+Every setting has a committed default in `src/config.js`, so a fresh deploy
+connects to Atlas, seeds the `admin` login, signs its own commit tokens and
+serves the dashboard as-is. The environment variables in the table above are
+overrides, not setup steps — reach for them only to keep a value out of the
+repository.
+
+In particular, `TRUSTED_IP_HEADER` is intentionally left unset. `src/geoip.js`
+already reads `x-vercel-forwarded-for` first, Vercel always writes it and
+overwrites whatever the caller sent, so the spoofable `x-forwarded-for` further
+down the chain is never reached in production. Pinning it would gain nothing
+here and would break local dev, where none of those headers exist.
 
 There is no build step — Vercel runs `npm install` and bundles the function.
 `vercel.json` rewrites every path to `api/index.js` and bundles `{views,public}/**`
@@ -201,12 +209,25 @@ fit inside Vercel's default function limit even on a cold start.
 
 ### Credentials in the repository
 
-The Atlas URI, the seed admin password and the cookie signing secret are all
-committed in `src/config.js`. That is what makes the zero-config deploy work,
-and it means **anyone who can read the repository can reach the database and
-forge a dashboard session**. Keep the repository private, and if that ever
-stops being true, move `MONGODB_URI`, `ADMIN_PASSWORD` and `SESSION_SECRET`
-into Vercel's environment variables and rotate the Atlas password.
+The Atlas URI, the seed admin password and `SESSION_SECRET` are all committed in
+`src/config.js`. That is what makes the zero-config deploy work, and it means
+**anyone who can read the repository can reach the database, forge a dashboard
+session, and POST arbitrary rows to `/survey/commit`** — that last one bypasses
+the survey and every duplicate rule, since the signed token is what proves a
+commit is genuine.
+
+Keeping the repository private is therefore what actually holds the write
+endpoint shut. If that ever stops being true, move `MONGODB_URI`,
+`ADMIN_PASSWORD` and `SESSION_SECRET` into Vercel's environment variables and
+rotate both the Atlas password and the secret:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Rotating `SESSION_SECRET` signs everyone out of the dashboard — it invalidates
+existing login cookies — and invalidates any collect page currently open in a
+respondent's browser. Both just need a retry.
 
 ## Try it
 

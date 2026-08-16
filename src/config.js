@@ -19,8 +19,14 @@ module.exports = {
   adminUsername: process.env.ADMIN_USERNAME || 'admin',
   adminPassword: process.env.ADMIN_PASSWORD || 'admin123',
 
-  // Signs the login cookie. Anyone who can read this value can forge a session,
-  // so override it in Vercel if the repository is shared.
+  // Signs the login cookie and the /survey/commit token (src/token.js).
+  //
+  // Anyone who can read this value can both forge a dashboard session and POST
+  // arbitrary uid/pid/status rows straight into survey_records, bypassing the
+  // survey entirely. Committed on purpose so the app deploys with nothing
+  // configured — which makes "keep the repository private" the thing actually
+  // holding the write endpoint shut. Rotate it with:
+  //   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
   sessionSecret: process.env.SESSION_SECRET
     || '2b5ca5039ef41058b9dea8002183edf11f5ac60e161996416ad43614bda04e55',
 
@@ -28,8 +34,14 @@ module.exports = {
   // 'Asia/Kolkata'.
   displayTimezone: process.env.DISPLAY_TIMEZONE || 'UTC',
 
-  // Pin the header the client IP is read from. The duplicate-IP rule is only as
-  // trustworthy as this value; on Vercel use 'x-vercel-forwarded-for'.
+  // Pin the header the client IP is read from, ignoring all others.
+  //
+  // Deliberately left unset: src/geoip.js already checks 'x-vercel-forwarded-for'
+  // first, Vercel always writes it, and it overwrites whatever the caller sent —
+  // so the spoofable 'x-forwarded-for' further down the chain is never reached
+  // in production. Pinning here would gain nothing there and would break local
+  // dev, where none of those headers exist and the socket address is the only
+  // IP available. Set it only when fronting the app with a different proxy.
   trustedIpHeader: process.env.TRUSTED_IP_HEADER || null,
 
   // Kept under Vercel's default function timeout, even on a cold start where a
