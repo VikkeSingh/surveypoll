@@ -30,6 +30,12 @@
         .status-security-terminate { background: #6f42c1; }
         table thead th { border-top: none; font-weight: 700; }
         table td, table th { vertical-align: middle; text-align: center; }
+        /* Truncated in the cell; the title attribute carries the full value. */
+        .device-id {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.85rem;
+            cursor: help;
+        }
     </style>
 </head>
 <body>
@@ -92,6 +98,7 @@
                 <th>Username</th>
                 <th>Status</th>
                 <th>IP Address</th>
+                <th>Device ID</th>
                 <th>Country</th>
                 <th>Create At</th>
             </tr>
@@ -99,7 +106,7 @@
         <tbody>
             <% if (records.length === 0) { %>
                 <tr>
-                    <td colspan="7" class="text-muted py-4">No records found</td>
+                    <td colspan="8" class="text-muted py-4">No records found</td>
                 </tr>
             <% } %>
             <% records.forEach(function (r, i) { %>
@@ -111,6 +118,13 @@
                         <span class="status-pill status-<%= String(r.status || '').toLowerCase() %>"><%= r.status %></span>
                     </td>
                     <td><%= r.ipAddress %></td>
+                    <td>
+                        <% if (r.fingerprint) { %>
+                            <span class="device-id" title="<%= r.fingerprint %>"><%= r.fingerprint.slice(0, 16) %>…</span>
+                        <% } else { %>
+                            <span class="text-muted">—</span>
+                        <% } %>
+                    </td>
                     <td><%= r.country %></td>
                     <td><%= formatTimestamp(r.createAt) %></td>
                 </tr>

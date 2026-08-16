@@ -31,37 +31,116 @@ function parseDate(value, daysOffset = 0) {
 }
 
 /**
- * Store a survey event. Captures IP + country from the incoming request.
+ * The three duplicate rules, each scoped globally and permanently: whichever
+ * hit arrives first claims the value, across every project and for good.
+ * Checked in this order, first match wins, and a match is stored nowhere.
  *
- * One IP may be recorded once, globally and permanently: whichever status
- * arrives first claims that address. A repeat hit from an address already
- * present in the collection is rejected and stored nowhere.
+ *   uid          one respondent ID may be recorded once. Exact and free — the
+ *                panel already gives us the ID, so this is the strongest rule.
+ *   fingerprint  one device may be recorded once. Catches a respondent who
+ *                comes back under a fresh uid.
+ *   ipAddress    one address may be recorded once. Weakest of the three:
+ *                carrier NAT and office networks put many people behind one
+ *                address, so it is checked last, purely so the reported reason
+ *                names a better rule when one applies.
  *
- * Returns { duplicate: true, ipAddress } or { duplicate: false, record }.
+ * Returns { duplicate: true, reason } or null.
  */
-async function record(uid, pid, status, req) {
-  const ip = extractClientIp(req);
-  const col = await records();
+async function findDuplicate(col, { uid, ip, fingerprint }) {
+  const projection = { projection: { _id: 1 } };
+
+  // usernameLower exists only on rows this version wrote; the exact `username`
+  // arm covers the legacy rows, which were stored verbatim.
+  const seenUid = await col.findOne({
+    $or: [{ usernameLower: normalizeUid(uid) }, { username: uid }],
+  }, projection);
+  if (seenUid) {
+    return { duplicate: true, reason: 'uid' };
+  }
+
+  if (fingerprint) {
+    const seenDevice = await col.findOne({ fingerprint }, projection);
+    if (seenDevice) {
+      return { duplicate: true, reason: 'fingerprint' };
+    }
+  }
 
   if (ip) {
-    const seen = await col.findOne({ ipAddress: ip }, { projection: { _id: 1 } });
-    if (seen) {
-      return { duplicate: true, ipAddress: ip };
+    const seenIp = await col.findOne({ ipAddress: ip }, projection);
+    if (seenIp) {
+      return { duplicate: true, reason: 'ip' };
     }
+  }
+
+  return null;
+}
+
+function normalizeUid(uid) {
+  return String(uid).trim().toLowerCase();
+}
+
+/** Map a unique-index violation back onto the rule that caught it. */
+function reasonFromIndexError(err) {
+  const key = (err && err.keyPattern) || {};
+  if (key.usernameLower) return 'uid';
+  if (key.fingerprint) return 'fingerprint';
+  return 'uid';
+}
+
+/**
+ * The rules that need no data from the browser. Run before the fingerprint
+ * round trip so an already-seen uid or IP is rejected on the first request,
+ * without asking the respondent's browser to do any work.
+ */
+async function precheck(uid, req) {
+  const ip = extractClientIp(req);
+  const col = await records();
+  const duplicate = await findDuplicate(col, { uid, ip });
+  return duplicate ? { ...duplicate, ipAddress: ip } : { duplicate: false, ipAddress: ip };
+}
+
+/**
+ * Store a survey event. Captures IP + country from the request and the device
+ * fingerprint measured by the browser (null when the client could not produce
+ * one — no JS, or the page timed out waiting).
+ *
+ * Returns { duplicate: true, reason, ipAddress, fingerprint }
+ *      or { duplicate: false, record }.
+ */
+async function record(uid, pid, status, req, fingerprint) {
+  const ip = extractClientIp(req);
+  const col = await records();
+  const device = blank(fingerprint) ? null : String(fingerprint).trim();
+
+  const duplicate = await findDuplicate(col, { uid, ip, fingerprint: device });
+  if (duplicate) {
+    return { ...duplicate, ipAddress: ip, fingerprint: device };
   }
 
   const country = await lookupCountry(ip);
   const doc = {
     projectId: pid,
     username: uid,
+    usernameLower: normalizeUid(uid),
     status,
     ipAddress: ip,
+    fingerprint: device,
     country,
     createAt: new Date(),
   };
 
-  const result = await col.insertOne(doc);
-  return { duplicate: false, record: { ...doc, _id: result.insertedId } };
+  try {
+    const result = await col.insertOne(doc);
+    return { duplicate: false, record: { ...doc, _id: result.insertedId } };
+  } catch (err) {
+    // Two hits carrying the same uid (or device) can both clear findDuplicate
+    // before either inserts. The unique indexes from db.js are what actually
+    // settle it; the loser lands here.
+    if (err && err.code === 11000) {
+      return { duplicate: true, reason: reasonFromIndexError(err), ipAddress: ip, fingerprint: device };
+    }
+    throw err;
+  }
 }
 
 /**
@@ -87,4 +166,4 @@ async function filter({ projectId, status, uid, startDate, endDate } = {}) {
   return col.find(query).sort({ createAt: -1 }).toArray();
 }
 
-module.exports = { record, filter };
+module.exports = { precheck, record, filter };

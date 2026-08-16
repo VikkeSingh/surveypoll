@@ -82,6 +82,12 @@
                 <th>IP Address</th>
                 <td><%= record.ipAddress %></td>
             </tr>
+            <% if (record.fingerprint) { %>
+                <tr>
+                    <th>Device ID</th>
+                    <td><%= record.fingerprint %></td>
+                </tr>
+            <% } %>
         </tbody>
     </table>
 </div>

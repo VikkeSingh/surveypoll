@@ -32,6 +32,7 @@ router.get('/records', async (req, res, next) => {
       username: r.username,
       status: r.status,
       ipAddress: r.ipAddress,
+      fingerprint: r.fingerprint || null,
       country: r.country,
       createAt: r.createAt,
     })));
@@ -44,7 +45,7 @@ router.get('/records/report', async (req, res, next) => {
   try {
     const rows = await filter(filterParams(req));
 
-    const lines = ['S.NO,Project ID,Username,Status,IP Address,Country,Create At'];
+    const lines = ['S.NO,Project ID,Username,Status,IP Address,Device ID,Country,Create At'];
     rows.forEach((r, i) => {
       lines.push([
         i + 1,
@@ -52,6 +53,7 @@ router.get('/records/report', async (req, res, next) => {
         csv(r.username),
         csv(r.status),
         csv(r.ipAddress),
+        csv(r.fingerprint),
         csv(r.country),
         csv(formatTimestamp(r.createAt)),
       ].join(','));
